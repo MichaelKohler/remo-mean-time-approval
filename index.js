@@ -45,8 +45,6 @@ if (!allBugs || allBugs.length === 0) {
 function processHistoryForAllBugs(bugs) {
   console.log('Number of bugs: ', bugs.length);
   async.eachSeries(bugs, function (bug, callback) {
-    console.log(bug);
-
     console.log('fetching history for ', bug.id);
 
     bugzilla.bugHistory(bug.id, function (error, history) {
@@ -89,6 +87,8 @@ function processHistoryForAllBugs(bugs) {
               status: bug.status,
               resolution: bug.resolution,
               bugSummary: bug.summary,
+              dateRequest: approvalRequests[approvalRequests.length - 1].when,
+              dateApproval: approved[approved.length - 1].when,
               difference: timeDifference,
               differenceFormatted: duration.toString(1),
               approver: approvalRequests[approvalRequests.length - 1].who
