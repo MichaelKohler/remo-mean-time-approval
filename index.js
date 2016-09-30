@@ -4,6 +4,7 @@ var allBugs = require('./bugs.json');
 var fs = require('fs-extra');
 var async = require('async');
 var config = require('./config.js');
+var Duration = require('duration');
 
 var bugzilla = bz.createClient({
   url: "https://bugzilla.mozilla.org/rest/",
@@ -81,12 +82,15 @@ function processHistoryForAllBugs(bugs) {
             var timeDifference = timeApproval - timeRequest;
             console.log('difference', timeDifference);
 
+            var duration = new Duration(timeRequest, timeApproval);
+
             var requestDifference = {
               bugID: bug.id,
               status: bug.status,
               resolution: bug.resolution,
               bugSummary: bug.summary,
               difference: timeDifference,
+              differenceFormatted: duration.toString(1),
               approver: approvalRequests[approvalRequests.length - 1].who
             };
 
@@ -96,10 +100,6 @@ function processHistoryForAllBugs(bugs) {
             console.log((require('util')).inspect(approvalRequests, showHidden=false, depth=10, colorize=true));
             console.log('approved');
             console.log((require('util')).inspect(approved, showHidden=false, depth=10, colorize=true));
-
-            console.log('finished thing');
-            console.log((require('util')).inspect(allBugsMeanTimes, showHidden=false, depth=10, colorize=true));
-            process.exit();
           }
         });
       });
@@ -110,10 +110,26 @@ function processHistoryForAllBugs(bugs) {
     console.log('finished...');
     console.log((require('util')).inspect(allBugsMeanTimes, showHidden=false, depth=10, colorize=true));
 
-    fs.outputJson('bugs.json', bugs, function (err) {
+    var totalTimeNeeded = 0;
+    var totalBugs = allBugsMeanTimes.length;
+
+    _.each(allBugsMeanTimes, function (bugMeanTime) {
+      totalTimeNeeded = totalTimeNeeded + bugMeanTime.difference;
+    });
+
+    var meanTime = totalTimeNeeded / totalBugs;
+    console.log(meanTime);
+
+    // Yay, hacky for last row
+    allBugsMeanTimes.push({
+      bugID: 'Total mean time',
+      approver: meanTime
+    });
+
+    fs.outputJson('alldifferences.json', allBugsMeanTimes, function (err) {
       if (err) console.log(err);
 
-      processHistoryForAllBugs(bugs);
+      console.log('Done!');
     });
   });
 }
