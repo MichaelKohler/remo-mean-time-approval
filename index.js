@@ -57,6 +57,8 @@ if (!allBugs || allBugs.length === 0) {
 function processHistoryForAllBugs(bugs) {
   console.log('Number of bugs: ', bugs.length);
 
+  // We need to use eachSeries, otherwise we are sending too many
+  // requests to bugzilla at once
   async.eachSeries(bugs, function (bug, callback) {
     console.log('Fetching history for ', bug.id);
 
