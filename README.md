@@ -40,6 +40,17 @@ How to run this script
 
 Make sure you have installed [Node.js](http://nodejs.org/)
 
+Add your bugzilla credentials in `config.js`. Please keep in mind that these will be seen by anyone looking at your screen while typing them in!
+
+```
+module.exports = {
+  user: '<youruserid>',
+  password: '<yourpassword>'
+};
+```
+
+After this you can install the necessary dependencies and start the script:
+
 ```
 $ npm install
 $ node index.js
