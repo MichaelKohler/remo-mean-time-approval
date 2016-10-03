@@ -1,10 +1,14 @@
-var bz = require('bz');
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 var _ = require('lodash');
 var allBugs = require('./bugs.json');
-var fs = require('fs-extra');
 var async = require('async');
+var bz = require('bz');
 var config = require('./config.js');
 var Duration = require('duration');
+var fs = require('fs-extra');
 
 var bugzilla = bz.createClient({
   url: "https://bugzilla.mozilla.org/rest/",
@@ -22,33 +26,36 @@ var params = {
   resolution: ['FIXED', 'INVALID', 'WONTFIX', '---']
 };
 
-console.log(allBugs.length);
-
 if (!allBugs || allBugs.length === 0) {
-  console.log('starting to fetch bugs...');
+  console.log('Starting to fetch bugs...');
 
   bugzilla.searchBugs(params, function(error, bugs) {
-    if (error) {
-      console.log(error);
-    } else {
-      fs.outputJson('bugs.json', bugs, function (err) {
-        if (err) console.log(err);
+    if (error) return console.log(error);
 
-        processHistoryForAllBugs(bugs);
-      });
-    }
+    fs.outputJson('bugs.json', bugs, function (err) {
+      if (err) console.log(err);
+
+      processHistoryForAllBugs(bugs);
+    });
   });
 } else {
   processHistoryForAllBugs(allBugs);
 }
 
+/**
+ * Processes all given bugs to search for remo-approval? and remo-approval+
+ *
+ * @param  {Array} bugs all bugs that we fetched
+ * @return void
+ */
 function processHistoryForAllBugs(bugs) {
   console.log('Number of bugs: ', bugs.length);
+
   async.eachSeries(bugs, function (bug, callback) {
-    console.log('fetching history for ', bug.id);
+    console.log('Fetching history for ', bug.id);
 
     bugzilla.bugHistory(bug.id, function (error, history) {
-      if (error) console.log(error);
+      if (error) return console.log(error);
 
       var approvalRequests = [];
       var approved = [];
@@ -57,19 +64,20 @@ function processHistoryForAllBugs(bugs) {
       _.each(histories, function (historyObject) {
         _.each(historyObject.changes, function (change) {
           if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval?')) {
-            console.log('we have a flag for approval?');
+            console.log('Found a flag for approval?');
 
             var approvalRequestHistory = _.cloneDeep(historyObject);
             approvalRequests.push(approvalRequestHistory);
           }
 
           if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval+')) {
-            console.log('we have a flag for approval+');
+            console.log('Found a flag for approval+');
 
             var approvedHistory = _.cloneDeep(historyObject);
             approved.push(approvedHistory);
           }
 
+          // We only want to process bugs which have a request and an approval
           if (approvalRequests.length > 0 && approved.length > 0) {
             var timeRequest = new Date(approvalRequests[approvalRequests.length - 1].when);
             console.log('timeRequest', timeRequest);
@@ -94,37 +102,38 @@ function processHistoryForAllBugs(bugs) {
               approver: approvalRequests[approvalRequests.length - 1].who
             };
 
-            allBugsMeanTimes.push(requestDifference);
+            console.log('Found difference', requestDifference);
 
-            console.log('approvalRequests');
-            console.log((require('util')).inspect(approvalRequests, showHidden=false, depth=10, colorize=true));
-            console.log('approved');
-            console.log((require('util')).inspect(approved, showHidden=false, depth=10, colorize=true));
+            allBugsMeanTimes.push(requestDifference);
           }
         });
       });
 
+      console.log('-----------');
+
       callback();
     });
   }, function (err) {
-    console.log('finished...');
-    console.log((require('util')).inspect(allBugsMeanTimes, showHidden=false, depth=10, colorize=true));
+    if (err) return console.log(err);
 
-    var totalTimeNeeded = 0;
-    var totalBugs = allBugsMeanTimes.length;
+    console.log('Finished processing all requested bugs...');
 
-    _.each(allBugsMeanTimes, function (bugMeanTime) {
-      totalTimeNeeded = totalTimeNeeded + bugMeanTime.difference;
-    });
-
-    var meanTime = totalTimeNeeded / totalBugs;
-    console.log(meanTime);
+    var totalMeanTime = calculateTotalMeanTime();
 
     // Yay, hacky for last row
     allBugsMeanTimes.push({
-      bugID: 'Total mean time',
-      approver: meanTime
+      bugID: 'TOTAL MEAN TIME',
+      status: '',
+      resolution: '',
+      bugSummary: '',
+      dateRequest: '',
+      dateApproval: '',
+      difference: '',
+      differenceFormatted: '',
+      approver: totalMeanTime
     });
+
+    console.log('Writing all difference to alldifferences.json');
 
     fs.outputJson('alldifferences.json', allBugsMeanTimes, function (err) {
       if (err) console.log(err);
@@ -132,4 +141,23 @@ function processHistoryForAllBugs(bugs) {
       console.log('Done!');
     });
   });
+}
+
+/**
+ * Calculates the mean time between request and approval
+ *
+ * @return {Number} mean time it took to approve the request
+ */
+function calculateTotalMeanTime() {
+  var totalTimeNeeded = 0;
+  var totalBugs = allBugsMeanTimes.length;
+
+  _.each(allBugsMeanTimes, function (bugMeanTime) {
+    totalTimeNeeded = totalTimeNeeded + bugMeanTime.difference;
+  });
+
+  var meanTime = totalTimeNeeded / totalBugs;
+  console.log('The total mean time (in ms) was', meanTime);
+
+  return meanTime;
 }
