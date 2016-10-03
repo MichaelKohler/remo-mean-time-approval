@@ -17,8 +17,9 @@ Output-Example
   bugSummary: 'Budget Request - John Doe - https://reps.mozilla.org/u/JOHNDOE/',
   whiteboard: 'Payment processed',
   lastChangeTime: '2013-10-14T20:43:20Z',
-  dateApprovalRequest: '2013-10-14T11:49:08Z',
-  dateApproval: '2013-10-14T19:13:39Z',
+  approvalRequestDate: '2013-10-14T11:49:08Z',
+  decisionDate: '2013-10-14T19:13:39Z',
+  decision: 'approved',
   difference: 26671000,
   differenceFormatted: '7h 24m 31s 0ms',
   approver: 'some-reps-reviewer@example.org'

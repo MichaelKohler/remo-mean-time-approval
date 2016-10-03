@@ -67,6 +67,7 @@ function processHistoryForAllBugs(bugs) {
 
       var approvalRequests = [];
       var approved = [];
+      var rejected = [];
       var changeHistories = completeHistory[0].history;
 
       // Iterate through all change history entries. Every time somebody changes
@@ -87,26 +88,34 @@ function processHistoryForAllBugs(bugs) {
             var approvedHistory = _.cloneDeep(history);
             approved.push(approvedHistory);
           }
+
+          if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval-')) {
+            console.log('Found a flag for approval-');
+
+            var rejectedHistory = _.cloneDeep(history);
+            rejected.push(rejectedHistory);
+          }
         });
       });
 
-      // We only want to process bugs which have a request and an approval.
-      // Further we only take the last request and last approval in case
-      // there have been multiple.
-      if (approvalRequests.length > 0 && approved.length > 0) {
+      // We only want to process bugs which have a request and an approval
+      // or rejection. Further we only take the last request and last approval
+      // in case there have been multiple.
+      if (approvalRequests.length > 0 && (approved.length > 0 || rejected.length > 0)) {
         var lastRequest = approvalRequests[approvalRequests.length - 1];
         var lastApproval = approved[approved.length - 1];
+        var lastRejection = rejected[rejected.length - 1];
+        var lastDecision = lastApproval || lastRejection;
+
+        var finalDecision = {
+          change: lastDecision,
+          decision: lastApproval ? 'approved' : 'rejected'
+        };
 
         var timeRequest = new Date(lastRequest.when);
-        console.log('timeRequest', timeRequest);
-
-        var timeApproval = new Date(lastApproval.when);
-        console.log('timeApproval', timeApproval);
-
-        var timeDifference = timeApproval - timeRequest;
-        console.log('difference', timeDifference);
-
-        var duration = new Duration(timeRequest, timeApproval);
+        var timeDecision = new Date(finalDecision.change.when);
+        var timeDifference = timeDecision - timeRequest;
+        var duration = new Duration(timeRequest, timeDecision);
 
         var requestDifference = {
           bugID: bug.id,
@@ -117,10 +126,11 @@ function processHistoryForAllBugs(bugs) {
           whiteboard: bug.whiteboard,
           lastChangeDate: bug.last_change_time,
           approvalRequestDate: lastRequest.when,
-          approvalDate: lastApproval.when,
+          decisionDate: finalDecision.change.when,
+          decision: finalDecision.decision,
           difference: timeDifference,
           differenceFormatted: duration.toString(1),
-          approver: lastApproval.who
+          approver: finalDecision.change.who
         };
 
         console.log('Found difference', requestDifference);
@@ -143,14 +153,7 @@ function processHistoryForAllBugs(bugs) {
     // Yay, hacky for last row
     allBugsMeanTimes.push({
       bugID: 'TOTAL MEAN TIME',
-      status: '',
-      resolution: '',
-      bugSummary: '',
-      dateRequest: '',
-      dateApproval: '',
-      difference: '',
-      differenceFormatted: '',
-      approver: totalMeanTime
+      creationDate: totalMeanTime
     });
 
     console.log('Writing all difference to alldifferences.json');
