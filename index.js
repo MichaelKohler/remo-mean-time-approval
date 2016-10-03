@@ -65,9 +65,12 @@ function processHistoryForAllBugs(bugs) {
     bugzilla.bugHistory(bug.id, function (error, completeHistory) {
       if (error) return console.log(error);
 
-      var approvalRequests = [];
-      var approved = [];
-      var rejected = [];
+      var reviewRequests = [];
+      var reviewApproved = [];
+      var reviewRejected = [];
+      var councilApprovalRequests = [];
+      var councilApproved = [];
+      var councilRejected = [];
       var changeHistories = completeHistory[0].history;
 
       // Iterate through all change history entries. Every time somebody changes
@@ -75,67 +78,55 @@ function processHistoryForAllBugs(bugs) {
       _.each(changeHistories, function (history) {
         // Iterate through every single change since it can involve multiple fields
         _.each(history.changes, function (change) {
-          if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval?')) {
-            console.log('Found a flag for approval?');
-
-            var approvalRequestHistory = _.cloneDeep(history);
-            approvalRequests.push(approvalRequestHistory);
+          if (change.field_name !== 'flagtypes.name') {
+            return;
           }
 
-          if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval+')) {
-            console.log('Found a flag for approval+');
+          // TODO: we can do better than this!
 
-            var approvedHistory = _.cloneDeep(history);
-            approved.push(approvedHistory);
+          if (change.added.includes('remo-review?')) {
+            reviewRequests.push(history);
           }
 
-          if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval-')) {
-            console.log('Found a flag for approval-');
+          if (change.added.includes('remo-review+')) {
+            reviewApproved.push(history);
+          }
 
-            var rejectedHistory = _.cloneDeep(history);
-            rejected.push(rejectedHistory);
+          if (change.added.includes('remo-review-')) {
+            reviewRejected.push(history);
+          }
+
+          if (change.added.includes('remo-approval?')) {
+            councilApprovalRequests.push(history);
+          }
+
+          if (change.added.includes('remo-approval+')) {
+            councilApproved.push(history);
+          }
+
+          if (change.added.includes('remo-approval-')) {
+            councilRejected.push(history);
           }
         });
       });
 
-      // We only want to process bugs which have a request and an approval
-      // or rejection. Further we only take the last request and last approval
-      // in case there have been multiple.
-      if (approvalRequests.length > 0 && (approved.length > 0 || rejected.length > 0)) {
-        var lastRequest = approvalRequests[approvalRequests.length - 1];
-        var lastApproval = approved[approved.length - 1];
-        var lastRejection = rejected[rejected.length - 1];
-        var lastDecision = lastApproval || lastRejection;
+      var requestDifferenceCouncil = {};
+      var requestDifferenceReview = {};
+      var difference = {};
 
-        var finalDecision = {
-          change: lastDecision,
-          decision: lastApproval ? 'approved' : 'rejected'
-        };
+      if (councilApprovalRequests.length > 0 && (councilApproved.length > 0 || councilRejected.length > 0)) {
+        requestDifferenceCouncil = createDifference(bug, 'COUNCIL', councilApprovalRequests, councilApproved, councilRejected);
+      }
 
-        var timeRequest = new Date(lastRequest.when);
-        var timeDecision = new Date(finalDecision.change.when);
-        var timeDifference = timeDecision - timeRequest;
-        var duration = new Duration(timeRequest, timeDecision);
+      if (reviewRequests.length > 0 && (reviewApproved.length > 0 || reviewRejected.length > 0)) {
+        requestDifferenceReview = createDifference(bug, 'REVIEW', reviewRequests, reviewApproved, reviewRejected);
+      }
 
-        var requestDifference = {
-          bugID: bug.id,
-          creationDate: bug.creation_time,
-          status: bug.status,
-          resolution: bug.resolution,
-          bugSummary: bug.summary,
-          whiteboard: bug.whiteboard,
-          lastChangeDate: bug.last_change_time,
-          approvalRequestDate: lastRequest.when,
-          decisionDate: finalDecision.change.when,
-          decision: finalDecision.decision,
-          difference: timeDifference,
-          differenceFormatted: duration.toString(1),
-          approver: finalDecision.change.who
-        };
+      _.merge(difference, requestDifferenceCouncil, requestDifferenceReview);
 
-        console.log('Found difference', requestDifference);
-
-        allBugsMeanTimes.push(requestDifference);
+      if (difference !== {}) {
+        console.log('difference', difference);
+        allBugsMeanTimes.push(difference);
       }
 
       console.log('-----------');
@@ -148,12 +139,16 @@ function processHistoryForAllBugs(bugs) {
     console.log('Finished processing all requested bugs...');
     console.log('Number of added bugs:', allBugsMeanTimes.length);
 
-    var totalMeanTime = calculateTotalMeanTime();
+    var totalReviewMeanTime = calculateTotalMeanTime('differenceReview');
+    var totalCouncilMeanTime = calculateTotalMeanTime('differenceCouncil');
 
-    // Yay, hacky for last row
+    // Yay, hacky for last rows
     allBugsMeanTimes.push({
-      bugID: 'TOTAL MEAN TIME',
-      creationDate: totalMeanTime
+      bugID: 'TOTAL MEAN TIME REVIEW',
+      creationDate: totalReviewMeanTime
+    }, {
+      bugID: 'TOTAL MEAN TIME COUNCIL',
+      creationDate: totalCouncilMeanTime
     });
 
     console.log('Writing all difference to alldifferences.json');
@@ -167,16 +162,88 @@ function processHistoryForAllBugs(bugs) {
 }
 
 /**
+ * Creates a difference object according to the given type.
+ *
+ * @param  {Object} bug      bug to take the difference from
+ * @param  {String} type     type of the difference, either COUNCIL or REVIEW
+ * @param  {Array} requests  list of requests
+ * @param  {Array} approved  list of approvals
+ * @param  {Array} rejected  list of rejections
+ * @return {Object}          difference object
+ */
+function createDifference(bug, type, requests, approved, rejected) {
+  var lastRequest = requests[requests.length - 1];
+  var lastApproval = approved[approved.length - 1];
+  var lastRejection = rejected[rejected.length - 1];
+  var lastDecision = lastApproval || lastRejection;
+
+  var finalDecision = {
+    change: lastDecision,
+    decision: lastApproval ? 'approved' : 'rejected'
+  };
+
+  var timeRequest = new Date(lastRequest.when);
+  var timeDecision = new Date(finalDecision.change.when);
+  var timeDifference = timeDecision - timeRequest;
+  var duration = new Duration(timeRequest, timeDecision);
+
+  var difference = {
+    bugID: bug.id,
+    creationDate: bug.creation_time,
+    status: bug.status,
+    resolution: bug.resolution,
+    bugSummary: bug.summary,
+    whiteboard: bug.whiteboard,
+    lastChangeDate: bug.last_change_time,
+    approver: finalDecision.change.who,
+    councilRequestDate: undefined,
+    councilDecisionDate: undefined,
+    councilDecision: undefined,
+    differenceCouncil: undefined,
+    differenceFormatted: undefined,
+    reviewRequestDate: undefined,
+    reviewDecisionDate: undefined,
+    reviewDecision: undefined,
+    differenceReview: undefined,
+    differenceReviewFormatted: undefined
+  };
+
+  if (type === 'COUNCIL') {
+    _.merge(difference, {
+      councilRequestDate: lastRequest.when,
+      councilDecisionDate: finalDecision.change.when,
+      councilDecision: finalDecision.decision,
+      differenceCouncil: timeDifference,
+      differenceFormatted: duration.toString(1)
+    });
+  }
+
+  if (type === 'REVIEW') {
+    _.merge(difference, {
+      reviewRequestDate: lastRequest.when,
+      reviewDecisionDate: finalDecision.change.when,
+      reviewDecision: finalDecision.decision,
+      differenceReview: timeDifference,
+      differenceReviewFormatted: duration.toString(1)
+    });
+  }
+
+  return difference;
+}
+
+/**
  * Calculates the mean time between request and approval
+ *
+ * @param {String} property  property to consider
  *
  * @return {Number} mean time it took to approve the request
  */
-function calculateTotalMeanTime() {
+function calculateTotalMeanTime(property) {
   var totalTimeNeeded = 0;
   var totalBugs = allBugsMeanTimes.length;
 
   _.each(allBugsMeanTimes, function (bugMeanTime) {
-    totalTimeNeeded = totalTimeNeeded + bugMeanTime.difference;
+    totalTimeNeeded = totalTimeNeeded + bugMeanTime[property];
   });
 
   var meanTime = totalTimeNeeded / totalBugs;
