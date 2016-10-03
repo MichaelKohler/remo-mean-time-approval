@@ -11,9 +11,12 @@ Output-Example
 ```
 {
   bugID: 111111,
-  status: 'ASSIGNED',
-  resolution: '',
+  creationDate: '2013-09-08T00:51:40Z',
+  status: 'RESOLVED',
+  resolution: 'FIXED',
   bugSummary: 'Budget Request - John Doe - https://reps.mozilla.org/u/JOHNDOE/',
+  whiteboard: 'Payment processed',
+  lastChangeTime: '2013-10-14T20:43:20Z',
   dateApprovalRequest: '2013-10-14T11:49:08Z',
   dateApproval: '2013-10-14T19:13:39Z',
   difference: 26671000,
@@ -27,8 +30,8 @@ Criteria
 
 For a bug to be considered it needs to fulfill the following criteria:
 
-* Status needs to be either 'ASSIGNED' or 'FIXED'
-* Resolution needs to be '---', 'RESOLVED', 'INVALID' or 'WONTFIX'
+* Status needs to be either 'ASSIGNED' or 'RESOLVED'
+* Resolution needs to be '---', 'FIXED', 'INVALID' or 'WONTFIX'
 * Bug needs to be in the 'Budget Requests' component of the 'Mozilla Reps' product
 * There needs to be a request for remo-approval? at some point
 * There needs to be an approval (remo-approval+)

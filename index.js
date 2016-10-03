@@ -110,11 +110,14 @@ function processHistoryForAllBugs(bugs) {
 
         var requestDifference = {
           bugID: bug.id,
+          creationDate: bug.creation_time,
           status: bug.status,
           resolution: bug.resolution,
           bugSummary: bug.summary,
-          dateApprovalRequest: lastRequest.when,
-          dateApproval: lastApproval.when,
+          whiteboard: bug.whiteboard,
+          lastChangeDate: bug.last_change_time,
+          approvalRequestDate: lastRequest.when,
+          approvalDate: lastApproval.when,
           difference: timeDifference,
           differenceFormatted: duration.toString(1),
           approver: lastApproval.who
