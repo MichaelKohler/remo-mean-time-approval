@@ -3,12 +3,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 var _ = require('lodash');
-var allBugs = require('./bugs.json');
 var async = require('async');
 var bz = require('bz');
 var config = require('./config.js');
 var Duration = require('duration');
 var fs = require('fs-extra');
+
+var allBugs = []
+try {
+  allBugs = require('./bugs.json');
+} catch (ex) {
+  console.log('existing bugs.json could not be found');
+}
 
 var bugzilla = bz.createClient({
   url: "https://bugzilla.mozilla.org/rest/",
@@ -125,6 +131,7 @@ function processHistoryForAllBugs(bugs) {
     if (err) return console.log(err);
 
     console.log('Finished processing all requested bugs...');
+    console.log('Number of added bugs:', allBugsMeanTimes.length);
 
     var totalMeanTime = calculateTotalMeanTime();
 
