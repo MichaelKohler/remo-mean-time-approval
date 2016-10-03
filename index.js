@@ -54,60 +54,68 @@ function processHistoryForAllBugs(bugs) {
   async.eachSeries(bugs, function (bug, callback) {
     console.log('Fetching history for ', bug.id);
 
-    bugzilla.bugHistory(bug.id, function (error, history) {
+    bugzilla.bugHistory(bug.id, function (error, completeHistory) {
       if (error) return console.log(error);
 
       var approvalRequests = [];
       var approved = [];
-      var histories = history[0].history;
+      var changeHistories = completeHistory[0].history;
 
-      _.each(histories, function (historyObject) {
-        _.each(historyObject.changes, function (change) {
+      // Iterate through all change history entries. Every time somebody changes
+      // something it will generate a new entry in the array.
+      _.each(changeHistories, function (history) {
+        // Iterate through every single change since it can involve multiple fields
+        _.each(history.changes, function (change) {
           if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval?')) {
             console.log('Found a flag for approval?');
 
-            var approvalRequestHistory = _.cloneDeep(historyObject);
+            var approvalRequestHistory = _.cloneDeep(history);
             approvalRequests.push(approvalRequestHistory);
           }
 
           if (change.field_name === 'flagtypes.name' && change.added.includes('remo-approval+')) {
             console.log('Found a flag for approval+');
 
-            var approvedHistory = _.cloneDeep(historyObject);
+            var approvedHistory = _.cloneDeep(history);
             approved.push(approvedHistory);
-          }
-
-          // We only want to process bugs which have a request and an approval
-          if (approvalRequests.length > 0 && approved.length > 0) {
-            var timeRequest = new Date(approvalRequests[approvalRequests.length - 1].when);
-            console.log('timeRequest', timeRequest);
-
-            var timeApproval = new Date(approved[approved.length - 1].when);
-            console.log('timeApproval', timeApproval);
-
-            var timeDifference = timeApproval - timeRequest;
-            console.log('difference', timeDifference);
-
-            var duration = new Duration(timeRequest, timeApproval);
-
-            var requestDifference = {
-              bugID: bug.id,
-              status: bug.status,
-              resolution: bug.resolution,
-              bugSummary: bug.summary,
-              dateRequest: approvalRequests[approvalRequests.length - 1].when,
-              dateApproval: approved[approved.length - 1].when,
-              difference: timeDifference,
-              differenceFormatted: duration.toString(1),
-              approver: approvalRequests[approvalRequests.length - 1].who
-            };
-
-            console.log('Found difference', requestDifference);
-
-            allBugsMeanTimes.push(requestDifference);
           }
         });
       });
+
+      // We only want to process bugs which have a request and an approval.
+      // Further we only take the last request and last approval in case
+      // there have been multiple.
+      if (approvalRequests.length > 0 && approved.length > 0) {
+        var lastRequest = approvalRequests[approvalRequests.length - 1];
+        var lastApproval = approved[approved.length - 1];
+
+        var timeRequest = new Date(lastRequest.when);
+        console.log('timeRequest', timeRequest);
+
+        var timeApproval = new Date(lastApproval.when);
+        console.log('timeApproval', timeApproval);
+
+        var timeDifference = timeApproval - timeRequest;
+        console.log('difference', timeDifference);
+
+        var duration = new Duration(timeRequest, timeApproval);
+
+        var requestDifference = {
+          bugID: bug.id,
+          status: bug.status,
+          resolution: bug.resolution,
+          bugSummary: bug.summary,
+          dateApprovalRequest: lastRequest.when,
+          dateApproval: lastApproval.when,
+          difference: timeDifference,
+          differenceFormatted: duration.toString(1),
+          approver: lastApproval.who
+        };
+
+        console.log('Found difference', requestDifference);
+
+        allBugsMeanTimes.push(requestDifference);
+      }
 
       console.log('-----------');
 
