@@ -243,7 +243,9 @@ function calculateTotalMeanTime(property) {
   var totalBugs = allBugsMeanTimes.length;
 
   _.each(allBugsMeanTimes, function (bugMeanTime) {
-    totalTimeNeeded = totalTimeNeeded + bugMeanTime[property];
+    if (bugMeanTime[property]) {
+      totalTimeNeeded = totalTimeNeeded + bugMeanTime[property];
+    }
   });
 
   var meanTime = totalTimeNeeded / totalBugs;
