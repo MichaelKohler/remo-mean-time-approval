@@ -23,8 +23,6 @@ var bugzilla = bz.createClient({
   timeout: 30000
 });
 
-var allBugsMeanTimes = [];
-
 var params = {
   component: 'Budget Requests',
   product: 'Mozilla Reps',
@@ -32,20 +30,54 @@ var params = {
   resolution: ['FIXED', 'INVALID', 'WONTFIX', '---']
 };
 
-if (!allBugs || allBugs.length === 0) {
-  console.log('Starting to fetch bugs...');
+var bugSearch = new BugSearch(allBugs, bugzilla);
+bugSearch.getAllBugs(params)
+.then(function (bugs) {
+  // TODO: we need to analyze it...
+})
+.catch(function (err) {
+  console.log(err);
+});
 
-  bugzilla.searchBugs(params, function(error, bugs) {
-    if (error) return console.log(error);
+class BugSearch {
+  constructor(allBugs, bugzilla) {
+    this.allBugs = allBugs;
+    this.bugzilla = bugzilla;
+  }
 
-    fs.outputJson('bugs.json', bugs, function (err) {
-      if (err) console.log(err);
+  getAllBugs(params) {
+    return new Promise((resolve, reject) => {
+      if (!this.allBugs || this.allBugs.length === 0) {
+        console.log('Starting to fetch bugs...');
 
-      processHistoryForAllBugs(bugs);
+        bugzilla.searchBugs(params, function (error, bugs) {
+          if (error) return reject(error);
+
+          fs.outputJson('bugs.json', bugs, function (err) {
+            if (err) return reject(err);
+
+            this.allBugs = bugs;
+
+            resolve(this.bugs);
+          });
+        });
+      } else {
+        resolve(this.allBugs);
+      }
     });
-  });
-} else {
-  processHistoryForAllBugs(allBugs);
+  }
+}
+
+class BugAnalyzer {
+  constructor() {
+
+  }
+}
+
+class JSONOutput {
+  constructor() {
+
+  }
 }
 
 /**
