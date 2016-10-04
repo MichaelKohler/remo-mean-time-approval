@@ -124,7 +124,7 @@ function processHistoryForAllBugs(bugs) {
 
       _.merge(difference, requestDifferenceCouncil, requestDifferenceReview);
 
-      if (difference !== {}) {
+      if (!_.isEmpty(difference)) {
         console.log('difference', difference);
         allBugsMeanTimes.push(difference);
       }
