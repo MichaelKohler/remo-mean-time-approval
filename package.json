@@ -1,6 +1,6 @@
 {
   "name": "reps-mean-time",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Calculate the mean time between remo-approval? and remo-approval+ for Reps budgets",
   "main": "index.js",
   "dependencies": {
