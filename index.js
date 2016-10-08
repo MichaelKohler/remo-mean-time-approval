@@ -30,44 +30,46 @@ const params = {
   resolution: ['FIXED', 'INVALID', 'WONTFIX', '---']
 };
 
-const bugSearch = new BugSearch(allBugs, bugzilla);
-const bugAnalyzer = new BugAnalyzer(bugzilla);
 
-bugSearch.getAllBugs(params)
-.then(function (bugs) {
-  return bugAnalyzer.processHistoryForAllBugs(bugs);
-})
-.then(function (differences) {
-  const output = new JSONOutput('alldifferences.json');
-  return output.save();
-})
-.then(function () {
-  console.log('Done!');
-})
-.catch(function (err) {
-  console.log(err);
-});
 
+/**
+ * BugSearch is a wrapper for bugzilla interactions. This searches bugs.
+ */
 class BugSearch {
+  /**
+   * BugSearch constructor
+   *
+   * @param {Array} allBugs already existing bugs or empty if we need to search
+   * @param {Object} bugzilla initialized bugzilla object from bz
+   */
   constructor(allBugs, bugzilla) {
     this.allBugs = allBugs;
     this.bugzilla = bugzilla;
   }
 
+  /**
+   * Takes search params and searches bugzilla for all bugs.
+   *
+   * @param  {Object} params bugzilla search params
+   * @return {Promise}
+   */
   getAllBugs(params) {
     return new Promise((resolve, reject) => {
       if (!this.allBugs || this.allBugs.length === 0) {
         console.log('Starting to fetch bugs...');
 
-        this.bugzilla.searchBugs(params, function (error, bugs) {
+        this.bugzilla.searchBugs(params, (error, bugs) => {
           if (error) return reject(error);
 
-          fs.outputJson('bugs.json', bugs, function (err) {
-            if (err) return reject(err);
+          const output = new JSONOutput('bugs.json');
+          output.save(bugs)
+          .then(() => {
+            console.log('Bugs saved');
 
-            this.allBugs = bugs;
-
-            resolve(this.bugs);
+            resolve(this.allBugs);
+          })
+          .catch((err) => {
+            reject(err);
           });
         });
       } else {
@@ -77,7 +79,16 @@ class BugSearch {
   }
 }
 
+
+/**
+ * BugAnalyzer analyzes the given bugs and prepares for output.
+ */
 class BugAnalyzer {
+  /**
+   * BugAnalyzer constructor
+   *
+   * @param {Object}  bugzilla   initialized bugzilla object from bz
+   */
   constructor(bugzilla) {
     this.bugzilla = bugzilla;
     this.bugs = [];
@@ -90,7 +101,7 @@ class BugAnalyzer {
    *
    * @param {Array} bugs bugs to analyze
    *
-   * @return void
+   * @return {Promise}
    */
   processHistoryForAllBugs(bugs) {
     this.bugs = bugs;
@@ -100,10 +111,10 @@ class BugAnalyzer {
     return new Promise((resolve, reject) => {
       // We need to use eachSeries, otherwise we are sending too many
       // requests to bugzilla at once
-      async.eachSeries(this.bugs, function (bug, callback) {
+      async.eachSeries(this.bugs, (bug, callback) => {
         console.log('Fetching history for ', bug.id);
 
-        this.bugzilla.bugHistory(bug.id, function (error, completeHistory) {
+        this.bugzilla.bugHistory(bug.id, (error, completeHistory) => {
           if (error) return reject(error);
 
           let reviewRequests = [];
@@ -116,9 +127,9 @@ class BugAnalyzer {
 
           // Iterate through all change history entries. Every time somebody changes
           // something it will generate a new entry in the array.
-          _.each(changeHistories, function (history) {
+          _.each(changeHistories, (history) => {
             // Iterate through every single change since it can involve multiple fields
-            _.each(history.changes, function (change) {
+            _.each(history.changes, (change) => {
               if (change.field_name !== 'flagtypes.name') {
                 return;
               }
@@ -174,7 +185,7 @@ class BugAnalyzer {
 
           callback();
         });
-      }, function (err) {
+      }, (err) => {
         if (err) return reject(err);
 
         console.log('Finished processing all requested bugs...');
@@ -278,7 +289,7 @@ class BugAnalyzer {
     let totalTimeNeeded = 0;
     let totalBugs = this.differences.length;
 
-    _.each(this.differences, function (bugMeanTime) {
+    _.each(this.differences, (bugMeanTime) => {
       if (bugMeanTime[property]) {
         totalTimeNeeded = totalTimeNeeded + bugMeanTime[property];
       }
@@ -291,19 +302,29 @@ class BugAnalyzer {
   }
 }
 
+/**
+ * JSONOutput
+ */
 class JSONOutput {
+  /**
+   * JSONOutput constructor
+   *
+   * @param {String} fileName filename to save JSON to
+   */
   constructor(fileName) {
     this.fileName = fileName;
   }
 
   /**
-   * Saves the differences to a JSON.
+   * Saves the content to a JSON.
+   *
+   * @param {Object} content content to write to a file
    */
-  save(differences) {
+  save(content) {
     console.log('Writing all difference to alldifferences.json');
 
-    return new Promise((resolve, reject) {
-      fs.outputJson(this.fileName, this.differences, function (err) {
+    return new Promise((resolve, reject) => {
+      fs.outputJson(this.fileName, content, (err) => {
         if (err) return reject(err);
 
         return resolve();
@@ -311,3 +332,23 @@ class JSONOutput {
     });
   }
 }
+
+
+
+const bugSearch = new BugSearch(allBugs, bugzilla);
+const bugAnalyzer = new BugAnalyzer(bugzilla);
+
+bugSearch.getAllBugs(params)
+.then((bugs) => {
+  return bugAnalyzer.processHistoryForAllBugs(bugs);
+})
+.then((differences) => {
+  const output = new JSONOutput('alldifferences.json');
+  return output.save();
+})
+.then(() => {
+  console.log('Done!');
+})
+.catch((err) => {
+  console.log(err);
+});
