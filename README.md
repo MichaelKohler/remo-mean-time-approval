@@ -17,15 +17,16 @@ Output-Example
   bugSummary: 'Budget Request - John Doe - https://reps.mozilla.org/u/JOHNDOE/',
   whiteboard: 'Payment processed',
   lastChangeTime: '2013-10-14T20:43:20Z',
-  approver: 'reviewer@example.org',
   councilRequestDate: '2012-10-03T10:11:03Z',
   councilDecisionDate: '2012-10-10T12:22:41Z',
   councilDecision: 'approved',
+  approver: 'approver@example.org',
   differenceCouncil: 612698000,
   differenceFormatted: '7d 2h 11m 38s 0ms',
   reviewRequestDate: '2012-10-05T13:45:14Z',
   reviewDecisionDate: '2012-10-08T18:09:51Z',
   reviewDecision: 'approved',
+  reviewer: 'reviewer@example.org'
   differenceReview: 275077000,
   differenceReviewFormatted: '3d 4h 24m 37s 0ms'
 }
