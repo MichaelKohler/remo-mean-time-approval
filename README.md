@@ -21,6 +21,7 @@ Output-Example
   councilDecisionDate: '2012-10-10T12:22:41Z',
   councilDecision: 'approved',
   approver: 'approver@example.org',
+  approverBody: 'single-council',
   differenceCouncil: 612698000,
   differenceFormatted: '7d 2h 11m 38s 0ms',
   reviewRequestDate: '2012-10-05T13:45:14Z',
