@@ -1,7 +1,7 @@
 remo-mean-time-approval
 ====
 
-This script crawles all Mozilla Reps Buget requests to calculate the average time it took from requesting an approval (remo-approval?) to the actual approval of the budget request (remo-approval+).
+This script crawles all Mozilla Reps Buget requests to calculate the average time it took from requesting an approval (remo-approval?) to the actual approval of the budget request (remo-approval+) as well as the time it took for initial remo-review.
 
 It will generate an object for every bug that fulfills the criteria and calculate its time-to-review and time-to-approval time.
 
