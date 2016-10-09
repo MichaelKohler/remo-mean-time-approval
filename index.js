@@ -192,47 +192,26 @@ class BugAnalyzer {
         return callback();
       }
 
-      let reviewRequests = [];
-      let reviewApproved = [];
-      let reviewRejected = [];
-      let councilApprovalRequests = [];
-      let councilApproved = [];
-      let councilRejected = [];
-      let changeHistories = completeHistory[0].history;
+      let historiesForFlags = {
+        'remo-review?': [],
+        'remo-review+': [],
+        'remo-review-': [],
+        'remo-approval?': [],
+        'remo-approval+': [],
+        'remo-approval-': []
+      };
 
       // Iterate through all change history entries. Every time somebody changes
       // something it will generate a new entry in the array.
-      _.each(changeHistories, (history) => {
+      _.each(completeHistory[0].history, (history) => {
         // Iterate through every single change since it can involve multiple fields
         _.each(history.changes, (change) => {
           if (change.field_name !== 'flagtypes.name') {
             return;
           }
 
-          // TODO: we can do better than this!
-
-          if (change.added.includes('remo-review?')) {
-            reviewRequests.push(history);
-          }
-
-          if (change.added.includes('remo-review+')) {
-            reviewApproved.push(history);
-          }
-
-          if (change.added.includes('remo-review-')) {
-            reviewRejected.push(history);
-          }
-
-          if (change.added.includes('remo-approval?')) {
-            councilApprovalRequests.push(history);
-          }
-
-          if (change.added.includes('remo-approval+')) {
-            councilApproved.push(history);
-          }
-
-          if (change.added.includes('remo-approval-')) {
-            councilRejected.push(history);
+          if (historiesForFlags[change.added]) {
+            historiesForFlags[change.added].push(history);
           }
         });
       });
@@ -241,12 +220,12 @@ class BugAnalyzer {
       let requestDifferenceReview = {};
       let difference = {};
 
-      if (councilApprovalRequests.length > 0 && (councilApproved.length > 0 || councilRejected.length > 0)) {
-        requestDifferenceCouncil = this.createDifference(bug, 'COUNCIL', councilApprovalRequests, councilApproved, councilRejected);
+      if (historiesForFlags['remo-approval?'].length > 0 && (historiesForFlags['remo-approval+'].length > 0 || historiesForFlags['remo-approval-'].length > 0)) {
+        requestDifferenceCouncil = this.createDifference(bug, 'COUNCIL', historiesForFlags);
       }
 
-      if (reviewRequests.length > 0 && (reviewApproved.length > 0 || reviewRejected.length > 0)) {
-        requestDifferenceReview = this.createDifference(bug, 'REVIEW', reviewRequests, reviewApproved, reviewRejected);
+      if (historiesForFlags['remo-review?'].length > 0 && (historiesForFlags['remo-review+'].length > 0 || historiesForFlags['remo-review-'].length > 0)) {
+        requestDifferenceReview = this.createDifference(bug, 'REVIEW', historiesForFlags);
       }
 
       _.merge(difference, requestDifferenceCouncil, requestDifferenceReview);
@@ -265,14 +244,21 @@ class BugAnalyzer {
   /**
    * Creates a difference object according to the given type.
    *
-   * @param  {Object} bug      bug to take the difference from
-   * @param  {String} type     type of the difference, either COUNCIL or REVIEW
-   * @param  {Array} requests  list of requests
-   * @param  {Array} approved  list of approvals
-   * @param  {Array} rejected  list of rejections
-   * @return {Object}          difference object
+   * @param  {Object} bug bug to take the difference from
+   * @param  {String} type type of the difference, either COUNCIL or REVIEW
+   * @param  {Array} historyFlags  list of changes
+   * @return {Object} difference object
    */
-  createDifference(bug, type, requests, approved, rejected) {
+  createDifference(bug, type, historyFlags) {
+    let prefixMap = {
+      'COUNCIL': 'remo-approval',
+      'REVIEW': 'remo-review'
+    };
+
+    let prefix = prefixMap[type];
+    let requests = historyFlags[prefix + '?'];
+    let approved = historyFlags[prefix + '+'];
+    let rejected = historyFlags[prefix + '-'];
     let lastRequest = requests[requests.length - 1];
     let lastApproval = approved[approved.length - 1];
     let lastRejection = rejected[rejected.length - 1];
@@ -394,7 +380,6 @@ const bugAnalyzer = new BugAnalyzer(bugzilla);
 
 bugSearch.getAllBugs(params)
 .then((bugs) => {
-  bugs = bugs.slice(0, 10);
   return bugAnalyzer.processHistoryForAllBugs(bugs);
 })
 .then((differences) => {
