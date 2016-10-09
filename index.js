@@ -130,7 +130,7 @@ class BugAnalyzer {
         console.log('Finished processing all requested bugs...');
         console.log('Number of added bugs:', this.differences.length);
 
-        this.processErrors();
+        this.processEncounteredErrors();
         this.calculateTimes();
 
         return resolve(this.differences)
@@ -161,7 +161,7 @@ class BugAnalyzer {
   /**
    * Processes all encountered errors and lists them on the console.
    */
-  processErrors() {
+  processEncounteredErrors() {
     console.log('----------------------');
     console.log('Errors we encountered:');
 
@@ -350,7 +350,7 @@ class BugAnalyzer {
     });
 
     let meanTime = totalTimeNeeded / totalBugs;
-    console.log('The total mean time (in ms) was', meanTime);
+    console.log('The total mean time (in ms) for ' + property + ' was', meanTime);
 
     return meanTime;
   }
@@ -394,6 +394,7 @@ const bugAnalyzer = new BugAnalyzer(bugzilla);
 
 bugSearch.getAllBugs(params)
 .then((bugs) => {
+  bugs = bugs.slice(0, 10);
   return bugAnalyzer.processHistoryForAllBugs(bugs);
 })
 .then((differences) => {
