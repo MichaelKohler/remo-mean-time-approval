@@ -210,8 +210,11 @@ class BugAnalyzer {
             return;
           }
 
-          if (historiesForFlags[change.added]) {
-            historiesForFlags[change.added].push(history);
+          // It is either just the flag, or the requestee in (...), we do not
+          // care about that..
+          var changedFlag = change.added.split('(')[0];
+          if (historiesForFlags[changedFlag]) {
+            historiesForFlags[changedFlag].push(history);
           }
         });
       });
