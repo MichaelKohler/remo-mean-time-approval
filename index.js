@@ -93,6 +93,7 @@ class BugAnalyzer {
     this.bugzilla = bugzilla;
     this.bugs = [];
     this.differences = [];
+    this.processErrors = [];
   }
 
   /**
@@ -112,99 +113,152 @@ class BugAnalyzer {
       // We need to use eachSeries, otherwise we are sending too many
       // requests to bugzilla at once
       async.eachSeries(this.bugs, (bug, callback) => {
-        console.log('Fetching history for ', bug.id);
-
-        this.bugzilla.bugHistory(bug.id, (error, completeHistory) => {
-          if (error) return reject(error);
-
-          let reviewRequests = [];
-          let reviewApproved = [];
-          let reviewRejected = [];
-          let councilApprovalRequests = [];
-          let councilApproved = [];
-          let councilRejected = [];
-          let changeHistories = completeHistory[0].history;
-
-          // Iterate through all change history entries. Every time somebody changes
-          // something it will generate a new entry in the array.
-          _.each(changeHistories, (history) => {
-            // Iterate through every single change since it can involve multiple fields
-            _.each(history.changes, (change) => {
-              if (change.field_name !== 'flagtypes.name') {
-                return;
-              }
-
-              // TODO: we can do better than this!
-
-              if (change.added.includes('remo-review?')) {
-                reviewRequests.push(history);
-              }
-
-              if (change.added.includes('remo-review+')) {
-                reviewApproved.push(history);
-              }
-
-              if (change.added.includes('remo-review-')) {
-                reviewRejected.push(history);
-              }
-
-              if (change.added.includes('remo-approval?')) {
-                councilApprovalRequests.push(history);
-              }
-
-              if (change.added.includes('remo-approval+')) {
-                councilApproved.push(history);
-              }
-
-              if (change.added.includes('remo-approval-')) {
-                councilRejected.push(history);
-              }
-            });
+        // We reject the promis inside processBugHistory if the bugzilla
+        // client responded with an error. Due to network errors etc it might
+        // not get that far though and throw a SyntaxError, we are catching it here
+        try {
+          this.processBugHistory(bug, callback);
+        } catch(err) {
+          this.processErrors.push({
+            error: err,
+            bugId: bug.id
           });
-
-          let requestDifferenceCouncil = {};
-          let requestDifferenceReview = {};
-          let difference = {};
-
-          if (councilApprovalRequests.length > 0 && (councilApproved.length > 0 || councilRejected.length > 0)) {
-            requestDifferenceCouncil = this.createDifference(bug, 'COUNCIL', councilApprovalRequests, councilApproved, councilRejected);
-          }
-
-          if (reviewRequests.length > 0 && (reviewApproved.length > 0 || reviewRejected.length > 0)) {
-            requestDifferenceReview = this.createDifference(bug, 'REVIEW', reviewRequests, reviewApproved, reviewRejected);
-          }
-
-          _.merge(difference, requestDifferenceCouncil, requestDifferenceReview);
-
-          if (!_.isEmpty(difference)) {
-            console.log('difference', difference);
-            this.differences.push(difference);
-          }
-
-          console.log('-----------');
-
-          callback();
-        });
+        }
       }, (err) => {
         if (err) return reject(err);
 
         console.log('Finished processing all requested bugs...');
         console.log('Number of added bugs:', this.differences.length);
 
-        let totalReviewMeanTime = this.calculateTotalMeanTime('differenceReview');
-        let totalCouncilMeanTime = this.calculateTotalMeanTime('differenceCouncil');
-
-        // Yay, hacky for last rows
-        this.differences.push({
-          bugID: 'TOTAL MEAN TIME REVIEW',
-          creationDate: totalReviewMeanTime
-        }, {
-          bugID: 'TOTAL MEAN TIME COUNCIL',
-          creationDate: totalCouncilMeanTime
-        });
+        this.processErrors();
+        this.calculateTimes();
 
         return resolve(this.differences)
       });
+    });
+  }
+
+  /**
+   * Calculates the mean times and pushes it as last row to the differences.
+   * This could be solved in a nicer matter and not create a pseudo difference
+   * but for now we're importing the differences into Google Spreadsheets and
+   * therefore we want a last row with it.
+   */
+  calculateTimes() {
+    let totalReviewMeanTime = this.calculateTotalMeanTime('differenceReview');
+    let totalCouncilMeanTime = this.calculateTotalMeanTime('differenceCouncil');
+
+    // Yay, hacky for last rows
+    this.differences.push({
+      bugID: 'TOTAL MEAN TIME REVIEW',
+      creationDate: totalReviewMeanTime
+    }, {
+      bugID: 'TOTAL MEAN TIME COUNCIL',
+      creationDate: totalCouncilMeanTime
+    });
+  }
+
+  /**
+   * Processes all encountered errors and lists them on the console.
+   */
+  processErrors() {
+    console.log('----------------------');
+    console.log('Errors we encountered:');
+
+    _.each(this.processErrors, function (processError, callback) {
+      console.log('Error with bug: ', processError.bugId);
+      console.log(processError.error);
+    });
+  }
+
+  /**
+   * Processes a single bug to calculate everthing we need to know.
+   *
+   * @param {Object} bug to analyze
+   * @param {Function} callback callback to be called once we're done so we can go ahead with async
+   */
+  processBugHistory(bug, callback) {
+    console.log('Fetching history for ', bug.id);
+
+    this.bugzilla.bugHistory(bug.id, (error, completeHistory) => {
+      if (error) {
+        // If we have an error from bugzilla, we do not want to reject
+        // the promise, just write to the processErrors
+        this.processErrors.push({
+          error: error,
+          bugId: bug.id
+        });
+
+        return callback();
+      }
+
+      let reviewRequests = [];
+      let reviewApproved = [];
+      let reviewRejected = [];
+      let councilApprovalRequests = [];
+      let councilApproved = [];
+      let councilRejected = [];
+      let changeHistories = completeHistory[0].history;
+
+      // Iterate through all change history entries. Every time somebody changes
+      // something it will generate a new entry in the array.
+      _.each(changeHistories, (history) => {
+        // Iterate through every single change since it can involve multiple fields
+        _.each(history.changes, (change) => {
+          if (change.field_name !== 'flagtypes.name') {
+            return;
+          }
+
+          // TODO: we can do better than this!
+
+          if (change.added.includes('remo-review?')) {
+            reviewRequests.push(history);
+          }
+
+          if (change.added.includes('remo-review+')) {
+            reviewApproved.push(history);
+          }
+
+          if (change.added.includes('remo-review-')) {
+            reviewRejected.push(history);
+          }
+
+          if (change.added.includes('remo-approval?')) {
+            councilApprovalRequests.push(history);
+          }
+
+          if (change.added.includes('remo-approval+')) {
+            councilApproved.push(history);
+          }
+
+          if (change.added.includes('remo-approval-')) {
+            councilRejected.push(history);
+          }
+        });
+      });
+
+      let requestDifferenceCouncil = {};
+      let requestDifferenceReview = {};
+      let difference = {};
+
+      if (councilApprovalRequests.length > 0 && (councilApproved.length > 0 || councilRejected.length > 0)) {
+        requestDifferenceCouncil = this.createDifference(bug, 'COUNCIL', councilApprovalRequests, councilApproved, councilRejected);
+      }
+
+      if (reviewRequests.length > 0 && (reviewApproved.length > 0 || reviewRejected.length > 0)) {
+        requestDifferenceReview = this.createDifference(bug, 'REVIEW', reviewRequests, reviewApproved, reviewRejected);
+      }
+
+      _.merge(difference, requestDifferenceCouncil, requestDifferenceReview);
+
+      if (!_.isEmpty(difference)) {
+        console.log('difference', difference);
+        this.differences.push(difference);
+      }
+
+      console.log('-----------');
+
+      callback();
     });
   }
 
