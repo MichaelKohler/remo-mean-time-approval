@@ -36,12 +36,11 @@ const bugAnalyzer = new BugAnalyzer(bugzilla);
 
 bugSearch.getAllBugs(params)
 .then((bugs) => {
-  bugs = bugs.slice(500, 520);
   return bugAnalyzer.processHistoryForAllBugs(bugs);
 })
 .then((differences) => {
   const output = new JSONOutput('alldifferences.json');
-  return output.save();
+  return output.save(differences);
 })
 .then(() => {
   console.log('Done!');
