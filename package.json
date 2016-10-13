@@ -1,7 +1,7 @@
 {
   "name": "reps-mean-time",
-  "version": "3.0.0",
-  "description": "Calculate the mean time between remo-approval? and remo-approval+ for Reps budgets",
+  "version": "3.1.0",
+  "description": "Calculate the mean time between request for approval and the decision for it as well as mentor review time for Reps budgets",
   "main": "index.js",
   "dependencies": {
     "async": "^2.0.1",
@@ -14,6 +14,6 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Michael Kohler",
   "license": "MPL"
 }

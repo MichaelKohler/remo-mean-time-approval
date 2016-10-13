@@ -1,6 +1,11 @@
 Changelog
 ====
 
+Version 3.1
+-----
+* Make sure to count difference between last ? -> +/- combination
+* Added approvalBody property to indicate who was responsible for the approval. This is one of the following: single-council, council, single-review, review-team
+
 Version 3.0
 -----
 * Architectural rewrite (uses ES6)
