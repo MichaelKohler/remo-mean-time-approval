@@ -1,6 +1,11 @@
 Changelog
 ====
 
+Version 3.1.1
+-----
+* Fixed issue #5 to make sure we catch all flag changes
+* Fixed issue with resolve so we instantly analyze bugs
+
 Version 3.1
 -----
 * Make sure to count difference between last ? -> +/- combination

@@ -1,6 +1,6 @@
 {
   "name": "reps-mean-time",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Calculate the mean time between request for approval and the decision for it as well as mentor review time for Reps budgets",
   "main": "index.js",
   "dependencies": {
