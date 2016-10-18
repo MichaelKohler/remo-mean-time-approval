@@ -1,6 +1,11 @@
 Changelog
 ====
 
+Version 3.1.2
+-----
+* Use correct whiteboard tag for single review team member assignments ('review team assigned') (issue #6)
+* Always compare whiteboard changes as lowercase string
+
 Version 3.1.1
 -----
 * Fixed issue #5 to make sure we catch all flag changes
