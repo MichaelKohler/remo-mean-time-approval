@@ -17,12 +17,19 @@ try {
   console.log('existing bugs.json could not be found');
 }
 
-const bugzilla = bz.createClient({
+const bugzillaAPIOptions = {
   url: "https://bugzilla.mozilla.org/rest/",
-  username: config.user,
-  password: config.password,
   timeout: 30000
-});
+};
+
+if (config.apiKey) {
+  bugzillaAPIOptions.api_key = config.apiKey;
+} else {
+  bugzillaAPIOptions.username = config.user;
+  bugzillaAPIOptions.password = config.password;
+}
+
+const bugzilla = bz.createClient(bugzillaAPIOptions);
 
 const params = {
   component: 'Budget Requests',

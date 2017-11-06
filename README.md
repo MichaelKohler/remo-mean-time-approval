@@ -51,12 +51,22 @@ How to run this script
 
 Make sure you have installed [Node.js](http://nodejs.org/)
 
-Add your bugzilla credentials in `config.js`. Please keep in mind that these will be seen by anyone looking at your screen while typing them in!
+Add your bugzilla credentials in `config.js`. This can also be a Bugzilla API key (necessary if the user account is secured by 2FA authentication!). Please keep in mind that these will be seen by anyone looking at your screen while typing them in!
+
+With user and password:
 
 ```
 module.exports = {
-  user: '<youruserid>',
-  password: '<yourpassword>'
+  user: '<yourUserID>',
+  password: '<yourPassword>'
+};
+```
+
+With API key:
+
+```
+module.exports = {
+  apiKey: '<yourAPIKey>
 };
 ```
 
