@@ -4,7 +4,7 @@
   "description": "Calculate the mean time between request for approval and the decision for it as well as mentor review time for Reps budgets",
   "main": "index.js",
   "dependencies": {
-    "async": "^2.0.1",
+    "async": "^3.2.2",
     "bz": "^0.4.5",
     "duration": "^0.2.0",
     "fs-extra": "^4.0.2",
